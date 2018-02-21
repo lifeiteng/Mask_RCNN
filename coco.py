@@ -26,11 +26,15 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
     # Run COCO evaluatoin on the last model you trained
     python3 coco.py evaluate --dataset=/path/to/coco/ --model=last
 """
+from __future__ import division
 
 import os
+import shutil
 import time
-import numpy as np
+import zipfile
 
+import numpy as np
+from pycocotools import mask as maskUtils
 # Download and install the Python COCO tools from https://github.com/waleedka/coco
 # That's a fork from the original https://github.com/pdollar/coco with a bug
 # fix for Python 3.
@@ -39,15 +43,15 @@ import numpy as np
 # Note: Edit PythonAPI/Makefile and replace "python" with "python3".
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
-from pycocotools import mask as maskUtils
 
-import zipfile
-import urllib.request
-import shutil
-
-from config import Config
-import utils
 import model as modellib
+import utils
+from config import Config
+
+try:
+    from urllib import request
+except:
+    from six.moves.urllib import request
 
 # Root directory of the project
 ROOT_DIR = os.getcwd()
@@ -59,6 +63,7 @@ COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
 # through the command line argument --logs
 DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 DEFAULT_DATASET_YEAR = "2014"
+
 
 ############################################################
 #  Configurations
@@ -171,8 +176,8 @@ class CocoDataset(utils.Dataset):
         if not os.path.exists(imgDir):
             os.makedirs(imgDir)
             print("Downloading images to " + imgZipFile + " ...")
-            with urllib.request.urlopen(imgURL) as resp, open(imgZipFile, 'wb') as out:
-                shutil.copyfileobj(resp, out)
+            with open(imgZipFile, 'wb') as out:
+                shutil.copyfileobj(request.urlopen(imgURL), out)
             print("... done downloading.")
             print("Unzipping " + imgZipFile)
             with zipfile.ZipFile(imgZipFile, "r") as zip_ref:
@@ -205,8 +210,8 @@ class CocoDataset(utils.Dataset):
         if not os.path.exists(annFile):
             if not os.path.exists(annZipFile):
                 print("Downloading zipped annotations to " + annZipFile + " ...")
-                with urllib.request.urlopen(annURL) as resp, open(annZipFile, 'wb') as out:
-                    shutil.copyfileobj(resp, out)
+                with open(annZipFile, 'wb') as out:
+                    shutil.copyfileobj(request.urlopen(annURL), out)
                 print("... done downloading.")
             print("Unzipping " + annZipFile)
             with zipfile.ZipFile(annZipFile, "r") as zip_ref:
@@ -441,6 +446,8 @@ if __name__ == '__main__':
             GPU_COUNT = 1
             IMAGES_PER_GPU = 1
             DETECTION_MIN_CONFIDENCE = 0
+
+
         config = InferenceConfig()
     config.display()
 
@@ -510,7 +517,8 @@ if __name__ == '__main__':
     elif args.command == "evaluate":
         # Validation dataset
         dataset_val = CocoDataset()
-        coco = dataset_val.load_coco(args.dataset, "minival", year=args.year, return_coco=True, auto_download=args.download)
+        coco = dataset_val.load_coco(args.dataset, "minival", year=args.year, return_coco=True,
+                                     auto_download=args.download)
         dataset_val.prepare()
         print("Running COCO evaluation on {} images.".format(args.limit))
         evaluate_coco(model, dataset_val, coco, "bbox", limit=int(args.limit))

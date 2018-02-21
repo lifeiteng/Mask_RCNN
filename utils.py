@@ -7,20 +7,41 @@ Licensed under the MIT License (see LICENSE for details)
 Written by Waleed Abdulla
 """
 
-import sys
-import os
-import math
-import random
+from __future__ import division
+
+import abc
+import logging
+
 import numpy as np
-import tensorflow as tf
 import scipy.misc
 import skimage.color
 import skimage.io
-import urllib.request
+import tensorflow as tf
+
+try:
+    from urllib import request
+except:
+    from six.moves.urllib import request
+
 import shutil
 
 # URL from which to download the latest COCO trained weights
 COCO_MODEL_URL = "https://github.com/matterport/Mask_RCNN/releases/download/v2.0/mask_rcnn_coco.h5"
+
+
+def get_logger(name):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s [%(filename)s:%(lineno)s - "
+                                  "%(funcName)s - %(levelname)s ] %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
+
+
+logger = get_logger(__name__)
 
 
 ############################################################
@@ -362,6 +383,7 @@ class Dataset(object):
             image = skimage.color.gray2rgb(image)
         return image
 
+    @abc.abstractmethod
     def load_mask(self, image_id):
         """Load instance masks for the given image.
 
@@ -417,11 +439,16 @@ def resize_image(image, min_dim=None, max_dim=None, padding=False):
     # Resize image and mask
     if scale != 1:
         image = scipy.misc.imresize(
-            image, (round(h * scale), round(w * scale)))
+            image, (int(round(h * scale)), int(round(w * scale))))
     # Need padding?
     if padding:
         # Get new height and width
-        h, w = image.shape[:2]
+        try:
+            h, w = image.shape[:2]
+        except:
+            logger.warn("image.shape: {}".format(image.shape))
+            h, w = image.shape[:2]
+
         top_pad = (max_dim - h) // 2
         bottom_pad = max_dim - h - top_pad
         left_pad = (max_dim - w) // 2
@@ -723,7 +750,7 @@ def download_trained_weights(coco_model_path, verbose=1):
     """
     if verbose > 0:
         print("Downloading pretrained model to " + coco_model_path + " ...")
-    with urllib.request.urlopen(COCO_MODEL_URL) as resp, open(coco_model_path, 'wb') as out:
-        shutil.copyfileobj(resp, out)
+    with open(coco_model_path, 'wb') as out:
+        shutil.copyfileobj(request.urlopen(COCO_MODEL_URL), out)
     if verbose > 0:
         print("... done downloading pretrained model!")
